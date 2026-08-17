@@ -1,6 +1,6 @@
 {
   "name": "@mtayfur/opencode-prompt-enhancer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "OpenCode plugin that rewrites rough drafts into stronger prompts.",
   "repository": {
     "type": "git",
