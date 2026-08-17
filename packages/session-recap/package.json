@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@mtayfur/opencode-session-recap",
+  "version": "0.1.0",
+  "description": "Context-free session recaps and topic-aware title refreshes for the OpenCode TUI.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mtayfur/opencode-plugins.git",
+    "directory": "packages/session-recap"
+  },
+  "bugs": {
+    "url": "https://github.com/mtayfur/opencode-plugins/issues"
+  },
+  "homepage": "https://github.com/mtayfur/opencode-plugins/tree/main/packages/session-recap#readme",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./tui": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "bun run scripts/build.ts",
+    "setup": "bash ./install.sh",
+    "setup:uninstall": "bash ./install.sh --uninstall",
+    "typecheck": "bun x tsc -p tsconfig.json",
+    "prepack": "bun run build"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.18.16",
+    "solid-js": "1.9.12"
+  },
+  "devDependencies": {
+    "@opencode-ai/sdk": "1.18.16",
+    "@opentui/core": "0.5.1",
+    "@opentui/solid": "0.5.1",
+    "@types/bun": "1.3.14",
+    "jsonc-parser": "^3.3.1",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@opentui/core": "^0.5.1",
+    "@opentui/solid": "^0.5.1"
+  },
+  "peerDependenciesMeta": {
+    "@opentui/core": {
+      "optional": true
+    },
+    "@opentui/solid": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "bun": ">=1.3.14",
+    "opencode": "^1.18.16"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "recap",
+    "session-title",
+    "tui"
+  ],
+  "packageManager": "bun@1.3.14"
+}
