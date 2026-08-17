@@ -7,7 +7,7 @@
     },
     "packages/cache-view": {
       "name": "@mtayfur/opencode-cache-view",
-      "version": "0.1.0",
+      "version": "1.0.0",
       "dependencies": {
         "solid-js": "^1.9.0",
       },
@@ -57,7 +57,7 @@
     },
     "packages/prompt-enhancer": {
       "name": "@mtayfur/opencode-prompt-enhancer",
-      "version": "0.1.0",
+      "version": "1.0.0",
       "devDependencies": {
         "@babel/core": "^7.28.0",
         "@babel/preset-typescript": "^7.27.1",
@@ -76,7 +76,7 @@
     },
     "packages/session-recap": {
       "name": "@mtayfur/opencode-session-recap",
-      "version": "0.1.0",
+      "version": "1.0.0",
       "dependencies": {
         "@opencode-ai/plugin": "^1.18.16",
         "solid-js": "1.9.12",
