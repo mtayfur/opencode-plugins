@@ -57,9 +57,25 @@ jobs:
             exit 1
           fi
 
-          echo "PACKAGE_DIR=${package_dir}" >> "${GITHUB_ENV}"
-          echo "PACKAGE_NAME=${package_name}" >> "${GITHUB_ENV}"
-          echo "PACKAGE_VERSION=${version}" >> "${GITHUB_ENV}"
+          {
+            echo "PACKAGE_DIR=${package_dir}"
+            echo "PACKAGE_NAME=${package_name}"
+            echo "PACKAGE_VERSION=${version}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Verify package version
+        shell: bash
+        run: |
+          manifest_version="$(node -p "require('./${PACKAGE_DIR}/package.json').version")"
+          if [ "${manifest_version}" != "${PACKAGE_VERSION}" ]; then
+            echo "Tag version ${PACKAGE_VERSION} does not match ${PACKAGE_DIR}/package.json version ${manifest_version}." >&2
+            exit 1
+          fi
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -78,15 +94,6 @@ jobs:
 
       - name: Build
         run: bun run --filter "${PACKAGE_NAME}" build
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Sync package version from tag
-        run: npm version "${PACKAGE_VERSION}" --no-git-tag-version --allow-same-version
-        working-directory: ${{ env.PACKAGE_DIR }}
 
       - name: Publish to npm
         run: npm publish --access public
