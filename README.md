@@ -40,14 +40,3 @@ bun run setup:uninstall
 ```
 
 Package-scoped `setup` and `setup:uninstall` commands remain available. These commands modify `~/.config/opencode/tui.json`; restart OpenCode afterward.
-
-## Releases
-
-Push a package-scoped tag to publish only that package:
-
-```text
-cache-view-v0.2.0
-chat-tree-v1.1.0
-prompt-enhancer-v0.2.0
-session-recap-v0.1.0
-```
