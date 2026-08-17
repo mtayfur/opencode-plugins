@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "@mtayfur/opencode-session-recap",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Context-free session recaps and topic-aware title refreshes for the OpenCode TUI.",
   "license": "MIT",
   "repository": {
