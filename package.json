@@ -8,6 +8,7 @@
   "scripts": {
     "setup": "bash ./install.sh",
     "setup:uninstall": "bash ./install.sh --uninstall",
+    "release": "bash ./release.sh",
     "format:check": "bun run --filter @mtayfur/opencode-chat-tree fmt:check",
     "typecheck": "bun run --workspaces --sequential typecheck",
     "build": "bun run --workspaces --sequential build",
