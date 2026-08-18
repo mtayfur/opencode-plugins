@@ -12,6 +12,7 @@ type EventOf<Type extends Event["type"]> = Extract<Event, { type: Type }>
 type StepStart = {
   sessionID: string
   time: number
+  firstTokenTime?: number
 }
 
 type StreamPart = {
@@ -70,7 +71,7 @@ export function createSpeedTracker(api: TuiPluginApi): SpeedTracker {
     starts.delete(value.messageID)
     if (!start || start.sessionID !== event.properties.sessionID) return
     clearStream(value.messageID)
-    const duration = event.properties.time - start.time
+    const duration = start.firstTokenTime === undefined ? 0 : event.properties.time - start.firstTokenTime
     const tokens = value.tokens.output + value.tokens.reasoning
     if (value.reason === "tool-calls") {
       pendingToolTurns.add(start.sessionID)
@@ -84,8 +85,11 @@ export function createSpeedTracker(api: TuiPluginApi): SpeedTracker {
   })
 
   const delta = api.event.on("message.part.delta", (event: EventOf<"message.part.delta">) => {
-    if (event.properties.field !== "text" || !starts.has(event.properties.messageID)) return
+    if (event.properties.field !== "text") return
+    const start = starts.get(event.properties.messageID)
+    if (!start) return
     const now = Date.now()
+    start.firstTokenTime ??= now
     const previous = streamParts.get(event.properties.partID) ?? {
       messageID: event.properties.messageID,
       units: 0,
