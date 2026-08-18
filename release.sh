@@ -124,7 +124,7 @@ fi
 bun run --cwd "${PACKAGE_DIR}" typecheck
 bun run --cwd "${PACKAGE_DIR}" build
 
-(cd "${PACKAGE_DIR}" && npm version "${new_version}" --no-git-tag-version --ignore-scripts >/dev/null)
+(cd "${PACKAGE_DIR}" && npm version "${new_version}" --no-git-tag-version --ignore-scripts --workspaces-update=false >/dev/null)
 bun install --lockfile-only --ignore-scripts
 bun install --frozen-lockfile --ignore-scripts
 
