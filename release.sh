@@ -5,14 +5,32 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN="${1:-}"
 VERSION_SPEC="${2:-patch}"
+NOTES_FILE="${3:-}"
 
 usage() {
-  echo "Usage: $0 [cache-view|chat-tree|prompt-enhancer|session-recap] [patch|minor|major|version]"
+  echo "Usage: $0 [cache-view|chat-tree|prompt-enhancer|session-recap] [patch|minor|major|version] [notes-file]"
 }
 
-if [ "$#" -gt 2 ]; then
+if [ "$#" -gt 3 ]; then
   usage
   exit 1
+fi
+
+if [ -n "${NOTES_FILE}" ]; then
+  case "${NOTES_FILE}" in
+    /*) ;;
+    *) NOTES_FILE="${PWD}/${NOTES_FILE}" ;;
+  esac
+
+  if [ ! -f "${NOTES_FILE}" ] || [ ! -r "${NOTES_FILE}" ]; then
+    echo "Release notes file is not readable: ${NOTES_FILE}" >&2
+    exit 1
+  fi
+
+  if [ ! -s "${NOTES_FILE}" ]; then
+    echo "Release notes file must not be empty: ${NOTES_FILE}" >&2
+    exit 1
+  fi
 fi
 
 for command_name in bun git node npm; do
@@ -72,6 +90,16 @@ new_version="$(cd "${version_dir}" && npm version "${VERSION_SPEC}" --no-git-tag
 new_version="${new_version#v}"
 
 tag="${PLUGIN}-v${new_version}"
+tag_message_file="${version_dir}/tag-message"
+
+if [ -n "${NOTES_FILE}" ]; then
+  {
+    printf '%s v%s\n\n' "${PLUGIN}" "${new_version}"
+    cat -- "${NOTES_FILE}"
+  } > "${tag_message_file}"
+else
+  printf '%s\n' "${tag}" > "${tag_message_file}"
+fi
 
 if git rev-parse --verify --quiet "refs/tags/${tag}" >/dev/null; then
   echo "Tag already exists: ${tag}" >&2
@@ -102,7 +130,7 @@ bun install --frozen-lockfile --ignore-scripts
 
 git add -- "${PACKAGE_JSON}" bun.lock
 git commit -m "release(${PLUGIN}): v${new_version}"
-git tag -a "${tag}" -m "${tag}"
+git tag -a "${tag}" -F "${tag_message_file}"
 
 git push --atomic origin main "${tag}"
 echo "Pushed ${tag}. GitHub Actions will publish ${PLUGIN}@${new_version} to npm."
