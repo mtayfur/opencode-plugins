@@ -20,7 +20,7 @@ export type SummaryRequest = {
   readonly messages: readonly ConversationEntry[];
   readonly customInstructions?: string;
   readonly signal?: AbortSignal;
-  readonly model?: SummaryModel;
+  readonly model: SummaryModel;
   readonly variant?: string;
 };
 
@@ -396,7 +396,7 @@ export class OpenCodeTreeGateway {
       directory: this.projectRoot,
       agent: "summary",
       system: SUMMARY_SYSTEM_PROMPT,
-      ...(request.model ? { model: request.model } : {}),
+      model: request.model,
       ...(request.variant ? { variant: request.variant } : {}),
       parts: [
         {

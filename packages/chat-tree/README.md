@@ -64,8 +64,10 @@ The plugin intentionally keeps its configuration small:
 | Option         | Default                | Description                             |
 | -------------- | ---------------------- | --------------------------------------- |
 | `storageScope` | `global`               | Use `global` or `local` tree metadata.  |
-| `model`        | Current OpenCode model | Model used to generate branch handoffs. |
+| `model`        | OpenCode `small_model` | Model used to generate branch handoffs. |
 | `variant`      | Model default          | Model variant used for branch handoffs. |
+
+When `model` is not set, branch handoffs use OpenCode's `small_model`.
 
 Unknown options are ignored so removing an obsolete option does not prevent the plugin from loading.
 

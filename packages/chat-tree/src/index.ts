@@ -46,7 +46,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
           projectRoot,
           storageRoot,
           sessionId,
-          summaryModel: configuration.model ?? readSummaryModel(api.state.config.model),
+          summaryModel: configuration.model ?? readSummaryModel(api.state.config.small_model),
           summaryVariant: configuration.variant,
           navigateToSession: (targetSessionId) => {
             api.route.navigate("session", { sessionID: targetSessionId });

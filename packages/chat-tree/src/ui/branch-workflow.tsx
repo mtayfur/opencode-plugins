@@ -157,6 +157,11 @@ export function createBranchWorkflow(input: CreateBranchWorkflowInput): BranchWo
       return;
     }
 
+    if (!input.summaryModel) {
+      failSummary("OpenCode small_model is not configured.");
+      return;
+    }
+
     let messages: ReturnType<typeof collectSummaryMessages>;
     try {
       messages = collectSummaryMessages(input.selectedRow(), transcripts);
@@ -170,7 +175,7 @@ export function createBranchWorkflow(input: CreateBranchWorkflowInput): BranchWo
     const summaryRequest: SummaryRequest = {
       messages,
       signal: controller.signal,
-      ...(input.summaryModel ? { model: input.summaryModel } : {}),
+      model: input.summaryModel,
       ...(input.summaryVariant ? { variant: input.summaryVariant } : {}),
     };
 
