@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "@mtayfur/opencode-chat-tree",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Conversation branching and navigation for the OpenCode TUI.",
   "homepage": "https://github.com/mtayfur/opencode-plugins/tree/main/packages/chat-tree#readme",
   "bugs": {
