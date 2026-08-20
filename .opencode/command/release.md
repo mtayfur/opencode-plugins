@@ -33,13 +33,18 @@ For each selected plugin independently:
 
 Write concise English notes about meaningful outcomes, not commit messages, using only applicable sections:
 
-```text
-Changes
+```markdown
+## Changes
+
 - Added or changed behavior.
 
-Fixes
+## Fixes
+
 - Corrected behavior.
 ```
+
+Use the `##` headings exactly as shown, leave a blank line before each bullet list, and format identifiers with inline
+code only when it improves readability.
 
 Include no empty headings, version title, commit hashes, `Breaking Changes`, or `Maintenance`. Put incompatible bullets
 under `Changes` prefixed with `**Breaking:**`. Normally omit internal details, but always include at least one bullet;
