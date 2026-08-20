@@ -160,20 +160,21 @@ function indentContextContinuation(text: string, indentation: string): string {
   return text.replaceAll("\n", `\n${indentation}`)
 }
 
-function resolveEnhancerModel(api: Api, options: PluginOptions | undefined): ModelRef | undefined {
+function resolveEnhancerModel(
+  api: Api,
+  options: PluginOptions | undefined,
+): { model: ModelRef, variant?: string } {
   const modelOverride = typeof options?.model === "string" ? options.model : undefined
-  if (modelOverride?.trim()) {
-    const override = parseModelString(modelOverride)
-    if (override) return override
-
-    api.ui.toast({
-      variant: "warning",
-      title: TOAST_TITLE,
-      message: `Invalid model override ${JSON.stringify(modelOverride)}; expected "provider/model". Using default model.`,
-    })
+  const model = modelOverride ? parseModelString(modelOverride) : parseModelString(api.state.config.small_model)
+  if (modelOverride && !model) {
+    throw new Error(`Invalid model override ${JSON.stringify(modelOverride)}; expected "provider/model".`)
   }
+  if (!model) throw new Error("OpenCode small_model is not configured.")
 
-  return parseModelString(api.state.config.small_model || api.state.config.model)
+  const variant = typeof options?.variant === "string" && options.variant.trim()
+    ? options.variant.trim()
+    : undefined
+  return { model, ...(variant ? { variant } : {}) }
 }
 
 function clonePromptInfo(prompt: TuiPromptInfo): TuiPromptInfo {
@@ -448,7 +449,7 @@ async function enhanceWithModel(
   signal: AbortSignal,
 ): Promise<string> {
   const directory = api.state.path.directory
-  const model = resolveEnhancerModel(api, options)
+  const selection = resolveEnhancerModel(api, options)
   const context = gatherContext(api)
   const userMessage = [
     `<CONTEXT>\n${context}\n</CONTEXT>`,
@@ -475,7 +476,8 @@ async function enhanceWithModel(
         {
           sessionID: tempSessionID,
           directory,
-          model,
+          model: selection.model,
+          ...(selection.variant ? { variant: selection.variant } : {}),
           system: ENHANCER_SYSTEM_PROMPT,
           parts: [
             {

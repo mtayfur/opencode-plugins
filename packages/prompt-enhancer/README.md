@@ -49,22 +49,23 @@ OpenCode `>=1.18.12 <2` is required.
 
 Restart OpenCode after changing the plugin configuration.
 
-## Model override
+## Model
 
-By default, the enhancer uses OpenCode's `small_model`, falling back to `model`. To use a different model only for prompt enhancement, configure the plugin as a tuple and pass a fully qualified `provider/model` ID:
+The enhancer uses OpenCode's `small_model` when `model` is not set.
 
 ```jsonc
 {
   "plugin": [
     [
       "@mtayfur/opencode-prompt-enhancer@latest",
-      { "model": "anthropic/claude-sonnet-4-6" }
+      {
+        "model": "anthropic/claude-sonnet-4-6",
+        "variant": "high"
+      }
     ]
   ]
 }
 ```
-
-The same options object can be added to a local plugin entry. Restart OpenCode after changing the model.
 
 ## Use
 
