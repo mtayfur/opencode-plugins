@@ -56,9 +56,10 @@ Restart OpenCode after rebuilding or changing the plugin configuration.
       "@mtayfur/opencode-session-recap",
       {
         "model": "openai/gpt-5.6-luna-fast",
+        "variant": "high",
         "models": {
           "title": "openai/gpt-5.6-luna-fast",
-          "recap": "openai/gpt-5.6-luna-fast"
+          "recap": "anthropic/claude-sonnet-4-6"
         },
         "title": {
           "enabled": true,
@@ -75,7 +76,7 @@ Restart OpenCode after rebuilding or changing the plugin configuration.
 }
 ```
 
-`model` is the shared override. `models.title` and `models.recap` override it per task. Without a plugin override, OpenCode Session Recap uses OpenCode's configured `small_model`; if no `small_model` is configured, it falls back to the current session model.
+When a model is not set, title and recap generation use OpenCode's `small_model`.
 
 ## Development
 

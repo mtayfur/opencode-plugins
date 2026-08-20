@@ -52,6 +52,7 @@ type ModelRef = {
 type RecapOptions = {
   model?: string;
   models?: Partial<Record<GenerationKind, string>>;
+  variant?: string;
   title?: {
     enabled?: boolean;
     refreshEveryUserMessages?: number;
@@ -64,7 +65,9 @@ type RecapOptions = {
 };
 
 type Configuration = {
+  model?: ModelRef;
   models: Partial<Record<GenerationKind, ModelRef>>;
+  variant?: string;
   title: {
     enabled: boolean;
     refreshEveryUserMessages: number;
@@ -91,7 +94,6 @@ type Transcript = {
   sourceKey: string;
   userMessageCount: number;
   managedRecapParts: ManagedRecapPart[];
-  model?: ModelRef;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -133,13 +135,16 @@ function readConfiguration(rawOptions: Record<string, unknown> | undefined): Con
   const models = isRecord(options.models) ? options.models : {};
   const title = isRecord(options.title) ? options.title : {};
   const recap = isRecord(options.recap) ? options.recap : {};
-  const sharedModel = parseModelRef(options.model, "model");
+  const model = parseModelRef(options.model, "model");
+  const variant = nonEmptyString(options.variant);
 
   return {
+    ...(model ? { model } : {}),
     models: {
-      title: parseModelRef(models.title, "models.title") ?? sharedModel,
-      recap: parseModelRef(models.recap, "models.recap") ?? sharedModel,
+      title: parseModelRef(models.title, "models.title"),
+      recap: parseModelRef(models.recap, "models.recap"),
     },
+    ...(variant ? { variant } : {}),
     title: {
       enabled: booleanValue(title.enabled, true),
       refreshEveryUserMessages:
@@ -233,24 +238,6 @@ function responseText(parts: readonly Part[]): string {
     .join("\n");
 }
 
-function modelFromSession(session: Session): ModelRef | undefined {
-  if (!session.model?.providerID || !session.model.id) return undefined;
-  return {
-    providerID: session.model.providerID,
-    modelID: session.model.id,
-    variant: session.model.variant,
-  };
-}
-
-function modelFromMessage(message: Message): ModelRef | undefined {
-  if (message.role !== "user") return undefined;
-  return {
-    providerID: message.model.providerID,
-    modelID: message.model.modelID,
-    variant: message.model.variant,
-  };
-}
-
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
@@ -314,6 +301,12 @@ function RecapDialog(props: {
 const tui: TuiPlugin = async (api, rawOptions) => {
   const configuration = readConfiguration(rawOptions);
   const smallModel = parseModelRef(api.state.config.small_model, "small_model");
+  function resolveModel(kind: GenerationKind): ModelRef | undefined {
+    const model = configuration.models[kind] ?? configuration.model ?? smallModel;
+    return model
+      ? { ...model, ...(configuration.variant ? { variant: configuration.variant } : {}) }
+      : undefined;
+  }
   const recapSyntaxStyle = SyntaxStyle.fromStyles({
     default: { fg: api.theme.current.markdownText },
   });
@@ -393,12 +386,11 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     });
   }
 
-  function buildTranscript(messages: readonly SessionMessage[], session: Session): Transcript | undefined {
+  function buildTranscript(messages: readonly SessionMessage[]): Transcript | undefined {
     const sections: string[] = [];
     const sourceKeys: string[] = [];
     const managedRecapParts: ManagedRecapPart[] = [];
     let userMessageCount = 0;
-    let latestModel = modelFromSession(session);
 
     for (const entry of messages) {
       const { info, parts } = entry;
@@ -417,7 +409,6 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       );
       if (info.role === "user" && hasUserContent) {
         userMessageCount += 1;
-        latestModel = modelFromMessage(info) ?? latestModel;
       }
 
       const text = visibleText(sourceParts);
@@ -449,7 +440,6 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       sourceKey: sourceKeys.join("|"),
       userMessageCount,
       managedRecapParts,
-      model: latestModel,
     };
   }
 
@@ -461,7 +451,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       loadSession(sessionID),
       loadMessages(sessionID),
     ]);
-    return { session, transcript: buildTranscript(messages, session) };
+    return { session, transcript: buildTranscript(messages) };
   }
 
   async function writeState(session: Session, state: RecapState): Promise<Session> {
@@ -493,10 +483,6 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     }
     if (!result.data) throw new Error("Session title update returned no data");
     return result.data;
-  }
-
-  function resolveModel(kind: GenerationKind, transcript: Transcript): ModelRef | undefined {
-    return configuration.models[kind] ?? smallModel ?? transcript.model;
   }
 
   async function completeText(
@@ -597,7 +583,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       return "unchanged";
     }
 
-    const model = resolveModel("title", transcript);
+    const model = resolveModel("title");
     if (!model) return "unavailable";
 
     const prompt = [
@@ -685,7 +671,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     const state = readRecapState(loaded.session);
     if (!force && state.recapSourceKey === transcript.sourceKey) return "unchanged";
 
-    const model = resolveModel("recap", transcript);
+    const model = resolveModel("recap");
     if (!model) return "unavailable";
 
     const prompt = [
@@ -714,7 +700,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       recapSourceKey: transcript.sourceKey,
       recapTimestamp: Date.now(),
     });
-    await generateTitle(sessionID, true);
+    await generateTitle(sessionID, false);
     return "generated";
   }
 
@@ -775,7 +761,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
               generated: "Recap was generated but could not be displayed.",
               unchanged: "Recap skipped because the session changed while it was generated.",
               empty: "No conversation found to recap.",
-              unavailable: "No active model is available for the recap.",
+              unavailable: "OpenCode small_model is not configured.",
               failed: "Could not generate recap; details were written to the log.",
             };
             api.ui.toast({
