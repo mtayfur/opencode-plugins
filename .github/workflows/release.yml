@@ -100,3 +100,25 @@ jobs:
         working-directory: ${{ env.PACKAGE_DIR }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create GitHub Release
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "GitHub Release already exists for ${GITHUB_REF_NAME}."
+            exit 0
+          fi
+          gh release create "${GITHUB_REF_NAME}" --verify-tag --title "${GITHUB_REF_NAME}" --notes-from-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}

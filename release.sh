@@ -133,4 +133,4 @@ git commit -m "release(${PLUGIN}): v${new_version}"
 git tag -a "${tag}" -F "${tag_message_file}"
 
 git push --atomic origin main "${tag}"
-echo "Pushed ${tag}. GitHub Actions will publish ${PLUGIN}@${new_version} to npm."
+echo "Pushed ${tag}. GitHub Actions will publish ${PLUGIN}@${new_version} to npm and create its GitHub Release."

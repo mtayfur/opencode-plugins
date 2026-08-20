@@ -49,8 +49,8 @@ summarize an internal-only outcome under `Changes`.
 
 Show every selected plugin's previous tag, bump, resulting version, concise rationale, and exact notes body, clearly
 separated by plugin. Then use the `question` tool once with `Release all now` and `Cancel` choices. State that each
-plugin is released independently: the script creates its own commit and tag, atomically pushes that tag with `main`,
-and triggers npm publishing. Proceed only after explicit `Release all now`; do not ask again.
+plugin is released independently: the script atomically pushes its commit and tag, which starts the downstream release.
+Proceed only after explicit `Release all now`; do not ask again.
 
 After confirmation, process the selected plugins sequentially in the displayed order. For each plugin, create a separate
 temporary file outside the worktree containing only that plugin's notes body and run exactly:
@@ -60,6 +60,7 @@ bash ./release.sh "$plugin" "$bump" "$notes_file"
 ```
 
 Always remove each temporary file after its command. Do not separately edit versions or lockfiles, commit, tag, push,
-publish, retry, or compensate; `release.sh` owns every release. Report every pushed tag on success. If any release fails,
+publish, create a GitHub Release, rerun `release.sh`, or compensate; `release.sh` is the sole release entry point. Report
+every pushed tag on success. If any release fails,
 stop without attempting the remaining plugins and report the exact step and error, plugins already released, plugins not
 attempted, and residual worktree or tag state found with read-only checks.
