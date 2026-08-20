@@ -1,35 +1,33 @@
 ---
-description: Analyze and release one plugin with a semantic version bump and concise changelog.
+description: Analyze and independently release one or more plugins with patch version bumps and concise changelogs.
 agent: build
 ---
 
-Release exactly one plugin from this repository. Arguments: `$ARGUMENTS`.
+Release one or more plugins independently from this repository. Arguments: `$ARGUMENTS`.
 
 Accepted plugins: `cache-view`, `chat-tree`, `prompt-enhancer`, `session-recap`. Accept zero or one positional
 argument; reject additional arguments without changing anything.
 
-## Resolve the plugin
+## Resolve the plugins
 
 First verify with read-only commands that the branch is `main`, the index and worktree are clean including untracked
 files, and `origin` is configured. On failure, stop unchanged and report the failed precondition.
 
-Use a valid supplied plugin. If it is missing or invalid, find each accepted plugin's latest version-sorted
+Use a valid supplied plugin as the sole selection. If it is missing or invalid, find each accepted plugin's latest version-sorted
 `<plugin>-v*` tag merged into `HEAD`, then retain only plugins with a non-empty diff from that tag to `HEAD` under
 `packages/<plugin>`. Exclude plugins without a matching tag. If none remain, stop. Otherwise use the `question` tool
-to offer exactly the retained plugins and require the user to select one.
+once with `multiple: true` to offer exactly the retained plugins and require the user to select at least one. Treat all
+selected plugins as independent releases.
 
 ## Analyze
 
-For the selected plugin:
+For each selected plugin independently:
 
 1. Find or reuse its latest version-sorted merged tag. Stop if none exists.
 2. Verify that `packages/<plugin>/package.json` has the same version as the tag suffix; stop on mismatch.
 3. Inspect both the complete commit range and complete package diff from that tag to `HEAD`. Stop if the diff is empty.
-4. Choose exactly one highest-applicable bump from actual behavior, not commit titles:
-   - `major`: backward-incompatible public API, configuration, or behavior.
-   - `minor`: backward-compatible user-visible capability.
-   - `patch`: compatible fixes, performance, documentation, refactoring, build, or other non-capability changes.
-5. Calculate the resulting version from the package version and bump.
+4. Always choose a `patch` bump regardless of the type or scope of the changes.
+5. Calculate the resulting version as `x.y.(z+1)` from the package version `x.y.z`.
 
 ## Release notes
 
@@ -49,16 +47,19 @@ summarize an internal-only outcome under `Changes`.
 
 ## Confirm and execute
 
-Show the plugin, previous tag, bump, resulting version, concise rationale, and exact notes body. Then use the `question`
-tool once with `Release now` and `Cancel` choices. State that the script commits, tags, atomically pushes, and triggers
-npm publishing. Proceed only after explicit `Release now`; do not ask again.
+Show every selected plugin's previous tag, bump, resulting version, concise rationale, and exact notes body, clearly
+separated by plugin. Then use the `question` tool once with `Release all now` and `Cancel` choices. State that each
+plugin is released independently: the script creates its own commit and tag, atomically pushes that tag with `main`,
+and triggers npm publishing. Proceed only after explicit `Release all now`; do not ask again.
 
-After confirmation, create a temporary file outside the worktree containing only the notes body and run exactly:
+After confirmation, process the selected plugins sequentially in the displayed order. For each plugin, create a separate
+temporary file outside the worktree containing only that plugin's notes body and run exactly:
 
 ```sh
 bash ./release.sh "$plugin" "$bump" "$notes_file"
 ```
 
-Always remove the temporary file afterward. Do not separately edit versions or lockfiles, commit, tag, push, publish,
-retry, or compensate; `release.sh` owns the release. Report the pushed tag on success. On failure, report the exact step
-and error plus residual worktree or tag state found with read-only checks.
+Always remove each temporary file after its command. Do not separately edit versions or lockfiles, commit, tag, push,
+publish, retry, or compensate; `release.sh` owns every release. Report every pushed tag on success. If any release fails,
+stop without attempting the remaining plugins and report the exact step and error, plugins already released, plugins not
+attempted, and residual worktree or tag state found with read-only checks.
