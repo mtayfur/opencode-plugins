@@ -13,6 +13,7 @@ type StepStart = {
   sessionID: string
   time: number
   firstTokenTime?: number
+  lastTokenTime?: number
 }
 
 type StreamPart = {
@@ -71,7 +72,9 @@ export function createSpeedTracker(api: TuiPluginApi): SpeedTracker {
     starts.delete(value.messageID)
     if (!start || start.sessionID !== event.properties.sessionID) return
     clearStream(value.messageID)
-    const duration = start.firstTokenTime === undefined ? 0 : event.properties.time - start.firstTokenTime
+    const duration = start.firstTokenTime === undefined || start.lastTokenTime === undefined
+      ? 0
+      : start.lastTokenTime - start.firstTokenTime
     const tokens = value.tokens.output + value.tokens.reasoning
     if (value.reason === "tool-calls") {
       pendingToolTurns.add(start.sessionID)
@@ -90,6 +93,7 @@ export function createSpeedTracker(api: TuiPluginApi): SpeedTracker {
     if (!start) return
     const now = Date.now()
     start.firstTokenTime ??= now
+    start.lastTokenTime = now
     const previous = streamParts.get(event.properties.partID) ?? {
       messageID: event.properties.messageID,
       units: 0,
