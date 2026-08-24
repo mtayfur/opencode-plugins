@@ -5,6 +5,7 @@ on:
     tags:
       - "cache-view-v*"
       - "chat-tree-v*"
+      - "codex-fast-v*"
       - "prompt-enhancer-v*"
       - "session-recap-v*"
 
@@ -35,6 +36,11 @@ jobs:
               package_dir="packages/chat-tree"
               package_name="@mtayfur/opencode-chat-tree"
               version="${tag#chat-tree-v}"
+              ;;
+            codex-fast-v*)
+              package_dir="packages/codex-fast"
+              package_name="@mtayfur/opencode-codex-fast"
+              version="${tag#codex-fast-v}"
               ;;
             prompt-enhancer-v*)
               package_dir="packages/prompt-enhancer"

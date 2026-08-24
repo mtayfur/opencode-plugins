@@ -13,8 +13,8 @@ case "${1:-install}" in
     ;;
 esac
 
-PLUGIN_DIRS=(cache-view chat-tree prompt-enhancer session-recap)
-PLUGIN_NAMES=("Cache View" "Chat Tree" "Prompt Enhancer" "Session Recap")
+PLUGIN_DIRS=(cache-view chat-tree codex-fast prompt-enhancer session-recap)
+PLUGIN_NAMES=("Cache View" "Chat Tree" "Codex Fast" "Prompt Enhancer" "Session Recap")
 
 echo "Select a plugin to ${ACTION}:"
 for index in "${!PLUGIN_NAMES[@]}"; do
@@ -25,10 +25,10 @@ printf "> "
 read -r selection
 
 case "${selection}" in
-  1|2|3|4)
+  1|2|3|4|5)
     SELECTED_DIRS=("${PLUGIN_DIRS[$((selection - 1))]}")
     ;;
-  5)
+  6)
     SELECTED_DIRS=("${PLUGIN_DIRS[@]}")
     ;;
   *)

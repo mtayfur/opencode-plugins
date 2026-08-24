@@ -8,7 +8,7 @@ VERSION_SPEC="${2:-patch}"
 NOTES_FILE="${3:-}"
 
 usage() {
-  echo "Usage: $0 [cache-view|chat-tree|prompt-enhancer|session-recap] [patch|minor|major|version] [notes-file]"
+  echo "Usage: $0 [cache-view|chat-tree|codex-fast|prompt-enhancer|session-recap] [patch|minor|major|version] [notes-file]"
 }
 
 if [ "$#" -gt 3 ]; then
@@ -58,22 +58,24 @@ if [ -z "${PLUGIN}" ]; then
   echo "Select a plugin to release:"
   echo "  1) Cache View"
   echo "  2) Chat Tree"
-  echo "  3) Prompt Enhancer"
-  echo "  4) Session Recap"
+  echo "  3) Codex Fast"
+  echo "  4) Prompt Enhancer"
+  echo "  5) Session Recap"
   printf "> "
   read -r selection
 
   case "${selection}" in
     1) PLUGIN="cache-view" ;;
     2) PLUGIN="chat-tree" ;;
-    3) PLUGIN="prompt-enhancer" ;;
-    4) PLUGIN="session-recap" ;;
+    3) PLUGIN="codex-fast" ;;
+    4) PLUGIN="prompt-enhancer" ;;
+    5) PLUGIN="session-recap" ;;
     *) echo "Invalid selection: ${selection}" >&2; exit 1 ;;
   esac
 fi
 
 case "${PLUGIN}" in
-  cache-view|chat-tree|prompt-enhancer|session-recap) ;;
+  cache-view|chat-tree|codex-fast|prompt-enhancer|session-recap) ;;
   *) usage; exit 1 ;;
 esac
 
