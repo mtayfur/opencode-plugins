@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@mtayfur/opencode-codex-fast",
+  "version": "1.0.0",
+  "description": "Toggle ChatGPT Codex priority service tier from the OpenCode TUI.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mtayfur/opencode-plugins.git",
+    "directory": "packages/codex-fast"
+  },
+  "bugs": {
+    "url": "https://github.com/mtayfur/opencode-plugins/issues"
+  },
+  "homepage": "https://github.com/mtayfur/opencode-plugins/tree/main/packages/codex-fast#readme",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./tui": {
+      "types": "./dist/tui.d.ts",
+      "import": "./dist/tui.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "bun run scripts/build.ts",
+    "setup": "bash ./install.sh",
+    "setup:uninstall": "bash ./install.sh --uninstall",
+    "typecheck": "bun x tsc -p tsconfig.json",
+    "prepack": "bun run build"
+  },
+  "dependencies": {
+    "solid-js": "^1.9.0"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.18.21 <2",
+    "@opentui/core": ">=0.5.1",
+    "@opentui/solid": ">=0.5.1"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "1.18.21",
+    "@opentui/core": "0.5.1",
+    "@opentui/keymap": "0.5.1",
+    "@opentui/solid": "0.5.1",
+    "@types/bun": "1.3.14",
+    "jsonc-parser": "^3.3.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "bun": ">=1.3.14",
+    "opencode": "^1.18.21"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "codex",
+    "fast-mode",
+    "priority"
+  ],
+  "packageManager": "bun@1.3.14"
+}
