@@ -1,6 +1,6 @@
 # OpenCode Plugins
 
-Independent OpenCode TUI plugins maintained in a single Bun workspace.
+Independent OpenCode plugins maintained in a single Bun workspace.
 
 ## Packages
 
@@ -8,10 +8,12 @@ Independent OpenCode TUI plugins maintained in a single Bun workspace.
 | --- | --- |
 | [`@mtayfur/opencode-cache-view`](packages/cache-view) | Cache usage, token estimates, and generation-speed metrics. |
 | [`@mtayfur/opencode-chat-tree`](packages/chat-tree) | Conversation branching and tree navigation. |
+| [`@mtayfur/opencode-codex-fast`](packages/codex-fast) | Global ChatGPT Codex priority-tier toggle. |
 | [`@mtayfur/opencode-prompt-enhancer`](packages/prompt-enhancer) | Prompt rewriting from the active TUI input. |
 | [`@mtayfur/opencode-session-recap`](packages/session-recap) | Context-free session recaps and topic-aware title refreshes. |
 
-Each plugin is versioned, published, and installed independently. See the package README for installation and configuration.
+Each plugin is versioned, published, and installed independently. See the package README for installation and
+configuration.
 
 ## Development
 
@@ -39,4 +41,5 @@ The script asks which plugin to install. To restore the selected plugin's publis
 bun run setup:uninstall
 ```
 
-Package-scoped `setup` and `setup:uninstall` commands remain available. These commands modify `~/.config/opencode/tui.json`; restart OpenCode afterward.
+Package-scoped `setup` and `setup:uninstall` commands remain available. They update the plugin's required OpenCode
+configuration files; restart OpenCode afterward.
