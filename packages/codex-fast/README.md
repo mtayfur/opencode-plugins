@@ -13,15 +13,37 @@ Other providers and endpoints are unaffected.
 
 ## Installation
 
+### OpenCode installer
+
 Install both plugin targets with OpenCode:
 
 ```sh
 opencode plugin --global @mtayfur/opencode-codex-fast
 ```
 
-The package uses separate server and TUI entry points. The installer adds it to `opencode.json(c)` and `tui.json`.
-If configuring manually, add `@mtayfur/opencode-codex-fast` to the `plugin` array in both files. Restart OpenCode
-after installation or updates.
+The package uses separate server and TUI entry points. The installer registers both targets.
+
+### Manual configuration
+
+Add the package to `~/.config/opencode/opencode.jsonc` (`opencode.json` is also supported):
+
+```jsonc
+{
+  "plugin": ["@mtayfur/opencode-codex-fast"]
+}
+```
+
+Add the same package to `~/.config/opencode/tui.json`:
+
+```json
+{
+  "plugin": ["@mtayfur/opencode-codex-fast"]
+}
+```
+
+Restart OpenCode after installation or configuration changes.
+
+### Local checkout
 
 For a local checkout, run `bun run --cwd packages/codex-fast setup`. Use `setup:uninstall` to remove both local
 registrations.
