@@ -13,9 +13,11 @@ import { useTerminalDimensions } from "@opentui/solid"
 import { Show, createMemo, createSignal } from "solid-js"
 import { ENHANCER_SYSTEM_PROMPT } from "./enhancer-system-prompt"
 
-const MAX_RECENT_MESSAGES = 3
+const MAX_RECENT_TURNS = 3
 const MAX_CHANGED_FILES = 25
-const MAX_CONTEXT_ITEM_PREVIEW_LENGTH = 250
+const MAX_USER_CONTEXT_PREVIEW_LENGTH = 500
+const MAX_ASSISTANT_CONTEXT_PREVIEW_LENGTH = 1_000
+const MAX_CONTEXT_LENGTH = 5_000
 const CONTEXT_TRUNCATION_MARKER = "\n[... truncated ...]\n"
 const ENHANCEMENT_TIMEOUT_MS = 60_000
 const ENHANCEMENT_ANIMATION_INTERVAL_MS = 250
@@ -107,6 +109,11 @@ type EnhancementInput = {
   draft: string
 }
 
+type ConversationTurn = {
+  user: Extract<Message, { role: "user" }>
+  assistant?: Extract<Message, { role: "assistant" }>
+}
+
 function parseEnhancementInput(input: string): EnhancementInput {
   const match = input.match(/^(\/[A-Za-z0-9][A-Za-z0-9._:-]*(?:\/[A-Za-z0-9][A-Za-z0-9._:-]*)*)(?:(?: +|\n)([\s\S]*))?$/)
   if (!match) return { draft: input }
@@ -147,10 +154,10 @@ function extractVisibleText(parts: ReadonlyArray<Part>): string {
     .join("")
 }
 
-function formatContextPreview(text: string): string {
-  if (text.length <= MAX_CONTEXT_ITEM_PREVIEW_LENGTH) return text
+function formatContextPreview(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
 
-  const available = MAX_CONTEXT_ITEM_PREVIEW_LENGTH - CONTEXT_TRUNCATION_MARKER.length
+  const available = maxLength - CONTEXT_TRUNCATION_MARKER.length
   const headLength = Math.ceil(available / 2)
   const tailLength = available - headLength
   return `${text.slice(0, headLength)}${CONTEXT_TRUNCATION_MARKER}${text.slice(-tailLength)}`
@@ -158,6 +165,46 @@ function formatContextPreview(text: string): string {
 
 function indentContextContinuation(text: string, indentation: string): string {
   return text.replaceAll("\n", `\n${indentation}`)
+}
+
+function appendContextItemsWithinBudget(
+  sections: string[],
+  items: ReadonlyArray<string>,
+  heading: (shown: number) => string,
+  reservedSections: ReadonlyArray<string>,
+  priority: "start" | "end" = "start",
+): void {
+  const accepted: string[] = []
+  const prioritizedItems = priority === "end" ? [...items].reverse() : items
+  for (const item of prioritizedItems) {
+    const candidateItems = priority === "end" ? [item, ...accepted] : [...accepted, item]
+    const candidateSection = `${heading(candidateItems.length)}\n${candidateItems.join("\n")}`
+    const candidateContext = [...sections, candidateSection, ...reservedSections].join("\n\n")
+    if (candidateContext.length <= MAX_CONTEXT_LENGTH) {
+      if (priority === "end") accepted.unshift(item)
+      else accepted.push(item)
+    } else if (priority === "end") {
+      break
+    }
+  }
+
+  if (accepted.length > 0) {
+    sections.push(`${heading(accepted.length)}\n${accepted.join("\n")}`)
+  }
+}
+
+function recentConversationTurns(messages: ReadonlyArray<Message>): ConversationTurn[] {
+  const turns: ConversationTurn[] = []
+  for (const message of messages) {
+    if (message.role === "user") {
+      turns.push({ user: message })
+      continue
+    }
+
+    const current = turns.at(-1)
+    if (current) current.assistant = message
+  }
+  return turns.slice(-MAX_RECENT_TURNS)
 }
 
 function resolveEnhancerModel(
@@ -402,42 +449,71 @@ function startEnhancementAnimation(
 function gatherContext(api: Api): string {
   const sections: string[] = []
 
-  const route = api.route.current
-  if (isSessionRoute(route)) {
-    const sessionID = route.params.sessionID
-    const messages = api.state.session.messages(sessionID)
-
-    const userMessages = messages.filter((message): message is Extract<Message, { role: "user" }> => message.role === "user")
-    const recent = userMessages.slice(-MAX_RECENT_MESSAGES).reverse()
-    if (recent.length > 0) {
-      const prompts: string[] = []
-      for (const msg of recent) {
-        const text = extractVisibleText(api.state.part(msg.id)).trim()
-        if (text) {
-          prompts.push(formatContextPreview(text))
-        }
-      }
-      if (prompts.length > 0) {
-        const formatted = prompts.map((prompt, index) => `${index + 1}. ${indentContextContinuation(prompt, "   ")}`).join("\n")
-        sections.push(`Recent user prompts in this session (newest first; use only same-task items):\n${formatted}`)
-      }
-    }
-
-    const diff = api.state.session.diff(sessionID)
-    if (diff.length > 0) {
-      const visibleFiles = diff.slice(0, MAX_CHANGED_FILES)
-      const count = diff.length > visibleFiles.length ? `; showing ${visibleFiles.length} of ${diff.length}` : ""
-      const files = visibleFiles.map((file) => `  @${file.file}`)
-      sections.push(`Files changed in session (candidates only; not proof of task intent${count}):\n${files.join("\n")}`)
-    }
-  }
-
   const metadata = [`Working directory: ${api.state.path.directory}`]
   const branch = api.state.vcs?.branch
   if (branch) {
     metadata.push(`Current branch: ${branch}`)
   }
-  sections.push(`Workspace metadata (weak signal only):\n${metadata.join("\n")}`)
+  const metadataSections: string[] = []
+  appendContextItemsWithinBudget(
+    metadataSections,
+    metadata,
+    () => "Workspace metadata (weak signal only):",
+    [],
+  )
+  const metadataSection = metadataSections[0]
+  const reservedSections = metadataSection ? [metadataSection] : []
+
+  const route = api.route.current
+  if (isSessionRoute(route)) {
+    const sessionID = route.params.sessionID
+    const messages = api.state.session.messages(sessionID)
+
+    const recentTurns = recentConversationTurns(messages)
+    const formattedTurns: string[] = []
+    for (const turn of recentTurns) {
+      const userText = extractVisibleText(api.state.part(turn.user.id)).trim()
+      if (!userText) continue
+
+      const lines = [
+        `Turn ${formattedTurns.length + 1}:`,
+        "  User:",
+        `    ${indentContextContinuation(formatContextPreview(userText, MAX_USER_CONTEXT_PREVIEW_LENGTH), "    ")}`,
+      ]
+      if (turn.assistant) {
+        const assistantText = extractVisibleText(api.state.part(turn.assistant.id)).trim()
+        if (assistantText) {
+          lines.push(
+            "  Assistant final response (reference resolution only; proposals are not user requirements):",
+            `    ${indentContextContinuation(formatContextPreview(assistantText, MAX_ASSISTANT_CONTEXT_PREVIEW_LENGTH), "    ")}`,
+          )
+        }
+      }
+      formattedTurns.push(lines.join("\n"))
+    }
+    appendContextItemsWithinBudget(
+      sections,
+      formattedTurns,
+      () => "Recent conversation turns (oldest first; use only same-task items):",
+      reservedSections,
+      "end",
+    )
+
+    const diff = api.state.session.diff(sessionID)
+    const visibleFiles = diff.slice(0, MAX_CHANGED_FILES)
+    const files = visibleFiles.map((file) => `  @${file.file}`)
+    appendContextItemsWithinBudget(
+      sections,
+      files,
+      (shown) => {
+        const count = diff.length > shown ? `; showing ${shown} of ${diff.length}` : ""
+        return `Files changed in session (candidates only; not proof of task intent${count}):`
+      },
+      reservedSections,
+    )
+  }
+
+  if (metadataSection) sections.push(metadataSection)
 
   return sections.join("\n\n")
 }
