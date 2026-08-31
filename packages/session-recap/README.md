@@ -6,7 +6,6 @@
 
 - Generates a readable recap of up to 1,000 characters after 10 minutes of inactivity.
 - Shows the recap in a large dialog without adding it to the transcript or future model context.
-- Regenerates the recap on demand with `/recap`.
 - Re-evaluates the session title every 20 user messages and after recap generation.
 - Keeps the current title when the dominant topic has not changed.
 - Stops automatic title changes after a manual rename is detected.

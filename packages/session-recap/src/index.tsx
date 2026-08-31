@@ -661,7 +661,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     return true;
   }
 
-  async function generateRecap(sessionID: string, force: boolean): Promise<GenerationResult> {
+  async function generateRecap(sessionID: string): Promise<GenerationResult> {
     if (!configuration.recap.enabled) return "unavailable";
 
     const loaded = await loadTranscript(sessionID);
@@ -669,7 +669,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     if (!transcript) return "empty";
 
     const state = readRecapState(loaded.session);
-    if (!force && state.recapSourceKey === transcript.sourceKey) return "unchanged";
+    if (state.recapSourceKey === transcript.sourceKey) return "unchanged";
 
     const model = resolveModel("recap");
     if (!model) return "unavailable";
@@ -710,7 +710,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     const timer = setTimeout(() => {
       idleTimers.delete(sessionID);
       enqueue(sessionID, async () => {
-        const result = await generateRecap(sessionID, false);
+        const result = await generateRecap(sessionID);
         if (result === "generated" && currentSessionID(api) === sessionID) {
           await showStoredRecap(sessionID);
         }
@@ -727,55 +727,6 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     if (!state.generatedTitle || state.manualTitle || session.title === state.generatedTitle) return;
     await writeState(session, { ...state, manualTitle: true });
   }
-
-  const disposeCommand = api.keymap.registerLayer({
-    commands: [
-      {
-        namespace: "palette",
-        name: "opencode-session-recap.generate",
-        title: "Generate Session Recap",
-        desc: "Generate or refresh a context-free recap of the current session",
-        category: "OpenCode Session Recap",
-        slashName: "recap",
-        suggested: () => currentSessionID(api) !== undefined,
-        enabled: () => currentSessionID(api) !== undefined,
-        run: () => {
-          const sessionID = currentSessionID(api);
-          if (!sessionID) return;
-          clearIdleTimer(sessionID);
-          enqueue(sessionID, async () => {
-            let result: GenerationResult;
-            try {
-              result = await generateRecap(sessionID, true);
-            } catch (error) {
-              console.warn(`[opencode-session-recap] recap generation failed: ${errorMessage(error)}`);
-              result = "failed";
-            }
-
-            if (result === "generated" && (await showStoredRecap(sessionID))) {
-              scheduleIdleRecap(sessionID);
-              return;
-            }
-
-            const messages: Record<GenerationResult, string> = {
-              generated: "Recap was generated but could not be displayed.",
-              unchanged: "Recap skipped because the session changed while it was generated.",
-              empty: "No conversation found to recap.",
-              unavailable: "OpenCode small_model is not configured.",
-              failed: "Could not generate recap; details were written to the log.",
-            };
-            api.ui.toast({
-              title: "OpenCode Session Recap",
-              message: messages[result],
-              variant: result === "failed" ? "warning" : "info",
-            });
-            scheduleIdleRecap(sessionID);
-          });
-        },
-      },
-    ],
-    bindings: [],
-  });
 
   const disposeMessage = api.event.on("message.updated", (event) => {
     const sessionID = event.properties.info.sessionID;
@@ -812,7 +763,6 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     disposeUpdated();
     disposeIdle();
     disposeMessage();
-    disposeCommand();
   });
 };
 
