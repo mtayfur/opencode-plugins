@@ -1,6 +1,7 @@
-# opencode-prompt-enhancer
+# OpenCode Prompt Enhancer
 
-OpenCode TUI plugin that rewrites rough prompt drafts into clearer, stronger prompts.
+`@mtayfur/opencode-prompt-enhancer` rewrites rough prompt drafts into clearer, stronger prompts directly inside the
+OpenCode TUI.
 
 ## What it does
 
@@ -19,33 +20,31 @@ The enhancer uses:
 - recent user prompts in the current session
 - files changed in the current session
 
-## Install
+## Requirements
 
-For local development without an npm release:
+- OpenCode `1.18.12` or a newer compatible 1.x release
 
-```bash
-bun run setup
+## Installation
+
+Install the plugin globally with OpenCode:
+
+```sh
+opencode plugin @mtayfur/opencode-prompt-enhancer --global
 ```
 
-This replaces the released plugin entry in OpenCode's `tui.json` plugin list with the local checkout. To restore the released plugin entry:
+Restart OpenCode after installation.
 
-```bash
-bun run setup:uninstall
-```
+### Manual configuration
 
-The setup command installs dependencies, builds `dist`, and updates the TUI plugin configuration.
-
-For npm install/publish flows, add the package to OpenCode's `tui.json` plugin list:
+Alternatively, add the package to OpenCode's `tui.json` plugin list:
 
 ```jsonc
 {
   "plugin": [
-    "@mtayfur/opencode-prompt-enhancer@latest"
+    "@mtayfur/opencode-prompt-enhancer"
   ]
 }
 ```
-
-OpenCode `>=1.18.12 <2` is required.
 
 Restart OpenCode after changing the plugin configuration.
 
@@ -57,7 +56,7 @@ The enhancer uses OpenCode's `small_model` when `model` is not set.
 {
   "plugin": [
     [
-      "@mtayfur/opencode-prompt-enhancer@latest",
+      "@mtayfur/opencode-prompt-enhancer",
       {
         "model": "anthropic/claude-sonnet-4-6",
         "variant": "high"
@@ -74,15 +73,5 @@ The enhancer uses OpenCode's `small_model` when `model` is not set.
 3. Press `Ctrl+E` or run the `Enhance Prompt` command.
 4. Review the prefilled dialog, edit it if needed, and confirm.
 5. The enhanced prompt replaces the current input.
-6. Press `Ctrl+Shift+E` to cancel an active enhancement or revert to the original prompt. Revert is skipped if the enhanced prompt was edited or is no longer active.
-
-## Development
-
-From the repository root:
-
-```bash
-bun install --frozen-lockfile
-bun run --filter @mtayfur/opencode-prompt-enhancer typecheck
-bun run --filter @mtayfur/opencode-prompt-enhancer build
-npm pack ./packages/prompt-enhancer --dry-run
-```
+6. Press `Ctrl+Shift+E` to cancel an active enhancement or revert to the original prompt. Revert is skipped if the
+   enhanced prompt was edited or is no longer active.

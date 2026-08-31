@@ -1,45 +1,19 @@
 # OpenCode Plugins
 
-Independent OpenCode plugins maintained in a single Bun workspace.
+A collection of focused TUI plugins for OpenCode.
 
-## Packages
+Monitor cache performance, navigate conversation trees, toggle Codex Fast Mode, enhance prompts, and generate
+automatic session recaps.
 
-| Package | Description |
-| --- | --- |
-| [`@mtayfur/opencode-cache-view`](packages/cache-view) | Cache usage, token estimates, and generation-speed metrics. |
-| [`@mtayfur/opencode-chat-tree`](packages/chat-tree) | Conversation branching and tree navigation. |
-| [`@mtayfur/opencode-codex-fast`](packages/codex-fast) | Global ChatGPT Codex priority-tier toggle. |
-| [`@mtayfur/opencode-prompt-enhancer`](packages/prompt-enhancer) | Prompt rewriting from the active TUI input. |
-| [`@mtayfur/opencode-session-recap`](packages/session-recap) | Context-free session recaps and topic-aware title refreshes. |
+## Plugins
 
-Each plugin is versioned, published, and installed independently. See the package README for installation and
-configuration.
+| Plugin | What it does | Install |
+| --- | --- | --- |
+| [Cache View](packages/cache-view) | Displays cache usage, token estimates, TTFT, and generation speed. | `opencode plugin @mtayfur/opencode-cache-view --global` |
+| [Chat Tree](packages/chat-tree) | Adds conversation branching and tree navigation. | `opencode plugin @mtayfur/opencode-chat-tree --global` |
+| [Codex Fast](packages/codex-fast) | Toggles the ChatGPT Codex priority service tier globally. | `opencode plugin @mtayfur/opencode-codex-fast --global` |
+| [Prompt Enhancer](packages/prompt-enhancer) | Rewrites rough prompts directly inside the OpenCode TUI. | `opencode plugin @mtayfur/opencode-prompt-enhancer --global` |
+| [Session Recap](packages/session-recap) | Generates session recaps and refreshes titles automatically. | `opencode plugin @mtayfur/opencode-session-recap --global` |
 
-## Development
-
-```sh
-bun install --frozen-lockfile
-bun run check
-```
-
-Run a command for one package with its npm name:
-
-```sh
-bun run --filter @mtayfur/opencode-chat-tree typecheck
-bun run --filter @mtayfur/opencode-chat-tree build
-```
-
-Register one local plugin, or all of them, from the workspace root:
-
-```sh
-bun run setup
-```
-
-The script asks which plugin to install. To restore the selected plugin's published package entry, run:
-
-```sh
-bun run setup:uninstall
-```
-
-Package-scoped `setup` and `setup:uninstall` commands remain available. They update the plugin's required OpenCode
-configuration files; restart OpenCode afterward.
+Install only the plugins you need. The OpenCode installer registers them globally; restart OpenCode afterward. Each
+plugin is versioned and published independently. See its linked README for requirements, configuration, and usage.

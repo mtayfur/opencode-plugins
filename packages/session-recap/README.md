@@ -15,11 +15,20 @@
 ## Requirements
 
 - OpenCode `1.18.16` or a compatible newer 1.x release
-- Bun `1.3.14` or newer for local development
 
 ## Installation
 
-Add the package to `~/.config/opencode/tui.json`:
+Install the plugin globally with OpenCode:
+
+```sh
+opencode plugin @mtayfur/opencode-session-recap --global
+```
+
+Restart OpenCode after installation.
+
+### Manual configuration
+
+Alternatively, add the package to `~/.config/opencode/tui.json`:
 
 ```json
 {
@@ -28,24 +37,6 @@ Add the package to `~/.config/opencode/tui.json`:
 ```
 
 Restart OpenCode after changing the configuration.
-
-### Local checkout
-
-Install and register the local build:
-
-```sh
-bun run setup
-```
-
-The installer resolves dependencies with the checked-in lockfile, builds `dist/index.js`, and replaces the published package entry in `~/.config/opencode/tui.json` with the local file URL.
-
-Restore the published package entry with:
-
-```sh
-bun run setup:uninstall
-```
-
-Restart OpenCode after rebuilding or changing the plugin configuration.
 
 ## Configuration
 
@@ -77,14 +68,3 @@ Restart OpenCode after rebuilding or changing the plugin configuration.
 ```
 
 When a model is not set, title and recap generation use OpenCode's `small_model`.
-
-## Development
-
-From the repository root:
-
-```sh
-bun install --frozen-lockfile
-bun run --filter @mtayfur/opencode-session-recap typecheck
-bun run --filter @mtayfur/opencode-session-recap build
-npm pack ./packages/session-recap --dry-run
-```

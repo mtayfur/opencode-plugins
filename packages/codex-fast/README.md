@@ -11,14 +11,16 @@ requests include:
 
 Other providers and endpoints are unaffected.
 
-## Installation
+## Requirements
 
-### OpenCode installer
+- OpenCode `1.18.21` or a newer compatible 1.x release
+
+## Installation
 
 Install both plugin targets with OpenCode:
 
 ```sh
-opencode plugin --global @mtayfur/opencode-codex-fast
+opencode plugin @mtayfur/opencode-codex-fast --global
 ```
 
 The package uses separate server and TUI entry points. The installer registers both targets.
@@ -42,11 +44,6 @@ Add the same package to `~/.config/opencode/tui.json`:
 ```
 
 Restart OpenCode after installation or configuration changes.
-
-### Local checkout
-
-For a local checkout, run `bun run --cwd packages/codex-fast setup`. Use `setup:uninstall` to remove both local
-registrations.
 
 ## Usage
 
@@ -79,12 +76,3 @@ The state file contains only the `enabled` boolean. Its location is:
 - `~/.config/opencode/codex-fast.json` otherwise
 
 Missing or invalid state means disabled. Writes are atomic.
-
-## Development
-
-```sh
-bun install --frozen-lockfile
-bun run --filter @mtayfur/opencode-codex-fast typecheck
-bun run --filter @mtayfur/opencode-codex-fast build
-npm pack ./packages/codex-fast --dry-run
-```
