@@ -18,8 +18,9 @@ const MAX_CHANGED_FILES = 25
 const MAX_USER_CONTEXT_PREVIEW_LENGTH = 500
 const MAX_ASSISTANT_CONTEXT_PREVIEW_LENGTH = 1_000
 const MAX_CONTEXT_LENGTH = 5_000
-const CONTEXT_TRUNCATION_MARKER = "\n[... truncated ...]\n"
+const CONTEXT_TRUNCATION_MARKER = "\n    [... truncated ...]\n    "
 const ENHANCEMENT_TIMEOUT_MS = 60_000
+const CLEANUP_TIMEOUT_MS = 2_000
 const ENHANCEMENT_ANIMATION_INTERVAL_MS = 250
 const TOAST_DURATION_MS = 3_000
 const ENHANCEMENT_CANCELED_MESSAGE = "Prompt enhancement canceled."
@@ -82,6 +83,7 @@ type PromptHandle = {
   target: PromptTarget
   directory: string
   ref?: TuiPromptRef
+  expectedPrompt?: TuiPromptInfo
 }
 
 type PromptUpdate = {
@@ -155,16 +157,15 @@ function extractVisibleText(parts: ReadonlyArray<Part>): string {
 }
 
 function formatContextPreview(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
+  // WHY: Indentation must count toward the budget, especially for multiline artifacts.
+  const head = text.slice(0, maxLength).replaceAll("\n", "\n    ")
+  if (text.length <= maxLength && head.length <= maxLength) return head
 
   const available = maxLength - CONTEXT_TRUNCATION_MARKER.length
   const headLength = Math.ceil(available / 2)
   const tailLength = available - headLength
-  return `${text.slice(0, headLength)}${CONTEXT_TRUNCATION_MARKER}${text.slice(-tailLength)}`
-}
-
-function indentContextContinuation(text: string, indentation: string): string {
-  return text.replaceAll("\n", `\n${indentation}`)
+  const tail = text.slice(-maxLength).replaceAll("\n", "\n    ")
+  return `${head.slice(0, headLength)}${CONTEXT_TRUNCATION_MARKER}${tail.slice(-tailLength)}`
 }
 
 function appendContextItemsWithinBudget(
@@ -172,19 +173,14 @@ function appendContextItemsWithinBudget(
   items: ReadonlyArray<string>,
   heading: (shown: number) => string,
   reservedSections: ReadonlyArray<string>,
-  priority: "start" | "end" = "start",
 ): void {
   const accepted: string[] = []
-  const prioritizedItems = priority === "end" ? [...items].reverse() : items
-  for (const item of prioritizedItems) {
-    const candidateItems = priority === "end" ? [item, ...accepted] : [...accepted, item]
+  for (const item of items) {
+    const candidateItems = [...accepted, item]
     const candidateSection = `${heading(candidateItems.length)}\n${candidateItems.join("\n")}`
     const candidateContext = [...sections, candidateSection, ...reservedSections].join("\n\n")
     if (candidateContext.length <= MAX_CONTEXT_LENGTH) {
-      if (priority === "end") accepted.unshift(item)
-      else accepted.push(item)
-    } else if (priority === "end") {
-      break
+      accepted.push(item)
     }
   }
 
@@ -195,16 +191,24 @@ function appendContextItemsWithinBudget(
 
 function recentConversationTurns(messages: ReadonlyArray<Message>): ConversationTurn[] {
   const turns: ConversationTurn[] = []
-  for (const message of messages) {
-    if (message.role === "user") {
-      turns.push({ user: message })
+  const assistants = new Map<string, ConversationTurn["assistant"]>()
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index]
+    if (message.role === "assistant") {
+      if (!assistants.has(message.parentID)) assistants.set(message.parentID, message)
       continue
     }
 
-    const current = turns.at(-1)
-    if (current) current.assistant = message
+    const assistant = assistants.get(message.id)
+    turns.push({
+      user: message,
+      assistant: assistant?.finish === "stop" && assistant.time.completed !== undefined && !assistant.error && !assistant.summary
+        ? assistant
+        : undefined,
+    })
+    if (turns.length === MAX_RECENT_TURNS) break
   }
-  return turns.slice(-MAX_RECENT_TURNS)
+  return turns.reverse()
 }
 
 function resolveEnhancerModel(
@@ -300,7 +304,9 @@ function isPromptHandleActive(api: Api, state: PluginState, handle: PromptHandle
   if (api.state.path.directory !== handle.directory) return false
 
   if (handle.ref) {
-    return state.promptRef === handle.ref && samePromptTarget(state.promptTarget, handle.target)
+    return state.promptRef === handle.ref
+      && samePromptTarget(state.promptTarget, handle.target)
+      && (!handle.expectedPrompt || samePromptInfo(handle.ref.current, handle.expectedPrompt))
   }
 
   return true
@@ -330,11 +336,12 @@ async function applyPromptUpdate(
   update: PromptUpdate,
   signal: AbortSignal,
 ): Promise<boolean> {
-  if (!isPromptHandleActive(api, state, handle)) return false
+  if (signal.aborted || !isPromptHandleActive(api, state, handle)) return false
 
   const promptRef = handle.ref
   if (promptRef) {
     promptRef.set(update.createPromptInfo(promptRef.current))
+    handle.expectedPrompt = clonePromptInfo(promptRef.current)
     if (update.refAction === "focus") promptRef.focus()
     else promptRef.blur()
     return true
@@ -342,10 +349,11 @@ async function applyPromptUpdate(
 
   const requestOptions = { signal, throwOnError: true } as const
   await api.client.tui.clearPrompt({ directory: handle.directory }, requestOptions)
+  if (signal.aborted || !isPromptHandleActive(api, state, handle)) return false
   if (update.fallbackInput) {
     await api.client.tui.appendPrompt({ directory: handle.directory, text: update.fallbackInput }, requestOptions)
   }
-  return true
+  return !signal.aborted && isPromptHandleActive(api, state, handle)
 }
 
 function clearPrompt(api: Api, state: PluginState, handle: PromptHandle, signal: AbortSignal, template?: TuiPromptInfo): Promise<boolean> {
@@ -426,24 +434,26 @@ function startEnhancementAnimation(
 
   let frame = 0
   let stopped = false
+  const stop = () => {
+    stopped = true
+    clearInterval(interval)
+  }
 
   const render = () => {
     if (stopped) return
     if (!isPromptHandleActive(api, state, handle)) {
-      stopped = true
+      stop()
       return
     }
 
     promptRef.set(nextPromptInfo(template ?? promptRef.current, ENHANCEMENT_ANIMATION_FRAMES[frame]))
+    handle.expectedPrompt = clonePromptInfo(promptRef.current)
     frame = (frame + 1) % ENHANCEMENT_ANIMATION_FRAMES.length
   }
 
-  render()
   const interval = setInterval(render, ENHANCEMENT_ANIMATION_INTERVAL_MS)
-  return () => {
-    stopped = true
-    clearInterval(interval)
-  }
+  render()
+  return stop
 }
 
 function gatherContext(api: Api): string {
@@ -470,34 +480,38 @@ function gatherContext(api: Api): string {
     const messages = api.state.session.messages(sessionID)
 
     const recentTurns = recentConversationTurns(messages)
-    const formattedTurns: string[] = []
-    for (const turn of recentTurns) {
+    const heading = "Recent conversation turns (oldest first; use only same-task items):"
+    const formattedTurns: { text: string, assistant?: ConversationTurn["assistant"] }[] = []
+    let remaining = MAX_CONTEXT_LENGTH - [heading, ...reservedSections].join("\n\n").length
+    // WHY: Reserve recent user intent before spending any budget on assistant responses.
+    for (let index = recentTurns.length - 1; index >= 0; index--) {
+      const turn = recentTurns[index]
       const userText = extractVisibleText(api.state.part(turn.user.id)).trim()
       if (!userText) continue
 
-      const lines = [
-        `Turn ${formattedTurns.length + 1}:`,
-        "  User:",
-        `    ${indentContextContinuation(formatContextPreview(userText, MAX_USER_CONTEXT_PREVIEW_LENGTH), "    ")}`,
-      ]
-      if (turn.assistant) {
-        const assistantText = extractVisibleText(api.state.part(turn.assistant.id)).trim()
-        if (assistantText) {
-          lines.push(
-            "  Assistant final response (reference resolution only; proposals are not user requirements):",
-            `    ${indentContextContinuation(formatContextPreview(assistantText, MAX_ASSISTANT_CONTEXT_PREVIEW_LENGTH), "    ")}`,
-          )
-        }
-      }
-      formattedTurns.push(lines.join("\n"))
+      const prefix = `Turn ${index + 1}:\n  User:\n    `
+      const budget = Math.min(MAX_USER_CONTEXT_PREVIEW_LENGTH, remaining - prefix.length - 1)
+      if (budget <= CONTEXT_TRUNCATION_MARKER.length) break
+      const text = prefix + formatContextPreview(userText, budget)
+      formattedTurns.unshift({ text, assistant: turn.assistant })
+      remaining -= text.length + 1
     }
-    appendContextItemsWithinBudget(
-      sections,
-      formattedTurns,
-      () => "Recent conversation turns (oldest first; use only same-task items):",
-      reservedSections,
-      "end",
-    )
+    for (let index = formattedTurns.length - 1; index >= 0; index--) {
+      const turn = formattedTurns[index]
+      if (!turn.assistant) continue
+      const assistantText = extractVisibleText(api.state.part(turn.assistant.id)).trim()
+      if (!assistantText) continue
+
+      const prefix = "\n  Assistant final response (reference resolution only; proposals are not user requirements):\n    "
+      const budget = Math.min(MAX_ASSISTANT_CONTEXT_PREVIEW_LENGTH, remaining - prefix.length)
+      if (budget <= CONTEXT_TRUNCATION_MARKER.length) break
+      const text = prefix + formatContextPreview(assistantText, budget)
+      turn.text += text
+      remaining -= text.length
+    }
+    if (formattedTurns.length) {
+      sections.push(`${heading}\n${formattedTurns.map((turn) => turn.text).join("\n")}`)
+    }
 
     const diff = api.state.session.diff(sessionID)
     const visibleFiles = diff.slice(0, MAX_CHANGED_FILES)
@@ -532,23 +546,21 @@ async function enhanceWithModel(
     `<DRAFT>\n${input}\n</DRAFT>`,
   ].join("\n\n")
 
-  const created = await api.client.session.create(
-    {
-      directory,
-      title: `Prompt Enhancer ${Math.random().toString(36).slice(2, 8)}`,
-      permission: [{ permission: "*", action: "deny", pattern: "*" }],
-    },
-    { signal, throwOnError: true },
-  )
-
-  const tempSessionID = created.data?.id
-  if (!tempSessionID) throw new Error("Failed to start prompt enhancer.")
-
+  let tempSessionID: string | undefined
   try {
-    const response = await withRequestTimeout(
-      signal,
-      ENHANCEMENT_TIMEOUT_MS,
-      (requestSignal) => api.client.session.prompt(
+    return await withRequestTimeout(signal, ENHANCEMENT_TIMEOUT_MS, async (requestSignal) => {
+      const created = await api.client.session.create(
+        {
+          directory,
+          title: `Prompt Enhancer ${Math.random().toString(36).slice(2, 8)}`,
+          permission: [{ permission: "*", action: "deny", pattern: "*" }],
+        },
+        { signal: requestSignal, throwOnError: true },
+      )
+      tempSessionID = created.data?.id
+      if (!tempSessionID) throw new Error("Failed to start prompt enhancer.")
+
+      const response = await api.client.session.prompt(
         {
           sessionID: tempSessionID,
           directory,
@@ -563,25 +575,33 @@ async function enhanceWithModel(
           ],
         },
         { signal: requestSignal, throwOnError: true },
-      ),
-    )
+      )
 
-    const parts = response.data?.parts
-    if (!parts) throw new Error("Enhancer returned no response.")
+      const parts = response.data?.parts
+      if (!parts) throw new Error("Enhancer returned no response.")
 
-    const enhanced = extractVisibleText(parts)
-    if (!enhanced.trim()) throw new Error("Enhancer returned no text.")
-    return enhanced
+      const enhanced = extractVisibleText(parts)
+      if (!enhanced.trim()) throw new Error("Enhancer returned no text.")
+      return enhanced
+    })
   } finally {
-    try {
-      await api.client.session.abort({ sessionID: tempSessionID, directory })
-    } catch {
-      // WHY: Cleanup continues with deletion when the helper has already stopped.
-    }
-    try {
-      await api.client.session.delete({ sessionID: tempSessionID, directory })
-    } catch {
-      // WHY: Helper cleanup must not replace a successful enhancement result.
+    if (tempSessionID) {
+      try {
+        await api.client.session.abort(
+          { sessionID: tempSessionID, directory },
+          { signal: AbortSignal.timeout(CLEANUP_TIMEOUT_MS), throwOnError: true },
+        )
+      } catch {
+        // WHY: Cleanup continues with deletion when the helper has already stopped.
+      }
+      try {
+        await api.client.session.delete(
+          { sessionID: tempSessionID, directory },
+          { signal: AbortSignal.timeout(CLEANUP_TIMEOUT_MS), throwOnError: true },
+        )
+      } catch {
+        // WHY: Bounded cleanup must not replace a successful enhancement result.
+      }
     }
   }
 }
@@ -713,6 +733,7 @@ function openEnhanceDialog(
     ref: state.promptRef,
   }
   const originalPrompt = handle.ref ? clonePromptInfo(handle.ref.current) : undefined
+  handle.expectedPrompt = originalPrompt
   const initialValue = originalPrompt?.input ?? ""
 
   const closeDialog = () => setEnhanceDialog(undefined)
@@ -771,6 +792,7 @@ function openEnhanceDialog(
         const clearPromise = clearPrompt(api, state, handle, signal, originalPrompt)
         activeEnhancement.clearPromise = clearPromise
         const cleared = await clearPromise
+        if (signal.aborted || activeEnhancement.canceled) return
         if (!cleared) {
           api.ui.toast({
             variant: "warning",
@@ -796,7 +818,7 @@ function openEnhanceDialog(
           api.ui.toast({
             variant: "warning",
             title: TOAST_TITLE,
-            message: "Enhanced prompt is ready, but that prompt is no longer active.",
+            message: "Enhanced prompt was not applied because the prompt changed or is no longer active.",
           })
           return
         }
@@ -826,7 +848,7 @@ function openEnhanceDialog(
 
         const canceled = enhancementController.signal.aborted && !signal.aborted
         if (canceled && state.activeEnhancement?.canceled) {
-          // cancelActiveEnhancement already stopped the animation and restored the prompt.
+          // WHY: Cancellation already attempted restoration; do not overwrite subsequent edits.
           return
         }
 
@@ -834,7 +856,7 @@ function openEnhanceDialog(
         try {
           restored = await restoreEnhancementPrompt(api, state, activeEnhancement, signal)
         } catch {
-          // Best-effort restore; do not suppress the error toast.
+          // WHY: Best-effort restoration must not suppress the error toast.
           restored = false
         }
         let baseMessage: string
@@ -934,6 +956,7 @@ function revertEnhancement(
     })
     return
   }
+  handle.expectedPrompt = clonePromptInfo(currentPrompt)
 
   void (async () => {
     try {
@@ -1044,8 +1067,10 @@ const tui: TuiPlugin = async (api, options) => {
       active.stopAnimation()
       if (active.originalPrompt && active.handle.ref) {
         try {
-          active.handle.ref.set(clonePromptInfo(active.originalPrompt))
-          active.handle.ref.focus()
+          if (isPromptHandleActive(api, state, active.handle)) {
+            active.handle.ref.set(clonePromptInfo(active.originalPrompt))
+            active.handle.ref.focus()
+          }
         } catch {
           // WHY: Teardown restoration is best-effort because the captured prompt ref may already be detached.
         }
